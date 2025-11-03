@@ -2,27 +2,9 @@
 // I keep the deployed Auction contract address and ABI here.
 // This file is consumed by App.js to instantiate the web3 contract.
 
-export const CONTRACT_ADDRESS_AUCTION = "0xbc247e71CB7fd0c631A67Eac8981309e433176F8";
+export const CONTRACT_ADDRESS_AUCTION = "0xbB16C875F02b0c71FF8210a555f68D568d560e93";
 
 export const CONTRACT_ABI_AUCTION = [
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "commitHash",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "bytes32[]",
-				"name": "proof",
-				"type": "bytes32[]"
-			}
-		],
-		"name": "commitBid",
-		"outputs": [],
-		"stateMutability": "payable",
-		"type": "function"
-	},
 	{
 		"inputs": [
 			{
@@ -82,41 +64,6 @@ export const CONTRACT_ABI_AUCTION = [
 		],
 		"name": "Committed",
 		"type": "event"
-	},
-	{
-		"inputs": [],
-		"name": "finalize",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "qty",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "price",
-				"type": "uint256"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "salt",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "randPart",
-				"type": "bytes32"
-			}
-		],
-		"name": "revealBid",
-		"outputs": [],
-		"stateMutability": "payable",
-		"type": "function"
 	},
 	{
 		"anonymous": false,
@@ -213,6 +160,24 @@ export const CONTRACT_ABI_AUCTION = [
 		"type": "event"
 	},
 	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "commitHash",
+				"type": "bytes32"
+			},
+			{
+				"internalType": "bytes32[]",
+				"name": "proof",
+				"type": "bytes32[]"
+			}
+		],
+		"name": "commitBid",
+		"outputs": [],
+		"stateMutability": "payable",
+		"type": "function"
+	},
+	{
 		"inputs": [],
 		"name": "commitDeadline",
 		"outputs": [
@@ -280,6 +245,13 @@ export const CONTRACT_ABI_AUCTION = [
 			}
 		],
 		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "finalize",
+		"outputs": [],
+		"stateMutability": "nonpayable",
 		"type": "function"
 	},
 	{
@@ -406,6 +378,34 @@ export const CONTRACT_ABI_AUCTION = [
 		"type": "function"
 	},
 	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "qty",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "price",
+				"type": "uint256"
+			},
+			{
+				"internalType": "bytes32",
+				"name": "salt",
+				"type": "bytes32"
+			},
+			{
+				"internalType": "bytes32",
+				"name": "randPart",
+				"type": "bytes32"
+			}
+		],
+		"name": "revealBid",
+		"outputs": [],
+		"stateMutability": "payable",
+		"type": "function"
+	},
+	{
 		"inputs": [],
 		"name": "revealDeadline",
 		"outputs": [
@@ -518,4 +518,4 @@ export const CONTRACT_ABI_AUCTION = [
 		"stateMutability": "view",
 		"type": "function"
 	}
-];
+]

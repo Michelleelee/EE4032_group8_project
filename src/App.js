@@ -1,6 +1,6 @@
 import {Routes, Route} from "react-router-dom";
 import {useNavigate} from "react-router-dom";
-import {useEffect, useState} from 'react';
+import {useEffect, useState, useCallback} from 'react';
 import {ethers} from 'ethers';
 import Web3 from "web3";
 
@@ -59,6 +59,9 @@ export default function App() {
     const [auctionRevealDone, setAuctionRevealDone] = useState(false);
     const [auctionRevealError, setAuctionRevealError] = useState("");
     const [auctionCommitError, setAuctionCommitError] = useState("");
+    const [sellerAddress, setSellerAddress] = useState(null);
+    const [inCommitPhase, setInCommitPhase] = useState(false);
+    const [inRevealPhase, setInRevealPhase] = useState(false);
     // =================================
 
     const navigate = useNavigate();
@@ -69,6 +72,20 @@ export default function App() {
     // ==== Auction contract instance (new) ====
     const contract_auction = new web3.eth.Contract(CONTRACT_ABI_AUCTION || [], CONTRACT_ADDRESS_AUCTION || "0x0000000000000000000000000000000000000000");
     // ========================================
+
+    const refreshAuctionPhases = useCallback(async () => {
+        if (!contract_auction || (CONTRACT_ABI_AUCTION || []).length === 0) return;
+        try {
+            const [commitFlag, revealFlag] = await Promise.all([
+                contract_auction.methods.inCommit().call(),
+                contract_auction.methods.inReveal().call()
+            ]);
+            setInCommitPhase(Boolean(commitFlag));
+            setInRevealPhase(Boolean(revealFlag));
+        } catch (err) {
+            console.log("Refresh auction phases failed:", err);
+        }
+    }, [contract_auction]);
 
 ////// connect to MetaMask. 
     const connectWallet = async () => {         // function that connect to METAMASK account, activated when clicking on 'connect'. 
@@ -387,6 +404,7 @@ export default function App() {
                 console.log("local now (unix):", nowTs, "chain latest block timestamp:", latestChainTs);
                 const wOn = await contract_auction.methods.whitelistOn().call();
                 const st  = await contract_auction.methods.settled().call();
+                const sellerAddr = await contract_auction.methods.seller().call();
                 setKUnits(Number(k_));
                 setReservePrice(Number(rsv));
                 setMinDeposit(Number(dep));
@@ -394,13 +412,15 @@ export default function App() {
                 setRevealDeadline(Number(rd));
                 setWhitelistOn(Boolean(wOn));
                 setSettled(Boolean(st));
+                setSellerAddress(sellerAddr);
+                refreshAuctionPhases();
             } catch (e) {
                 console.log("Read auction static info failed:", e);
             }
         }
         readAuctionStatic();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [address]);
+    }, [address, refreshAuctionPhases]);
 
     useEffect(() => {
         if (!contract_auction || (CONTRACT_ABI_AUCTION || []).length === 0) return;
@@ -417,10 +437,19 @@ export default function App() {
             try { contract_auction.removeAllListeners("Settled"); } catch (_) {}
         };
     }, [contract_auction]);
+
+    useEffect(() => {
+        if (!contract_auction || (CONTRACT_ABI_AUCTION || []).length === 0) return;
+        refreshAuctionPhases();
+        const intervalId = setInterval(() => {
+            refreshAuctionPhases();
+        }, 10000);
+        return () => clearInterval(intervalId);
+    }, [contract_auction, refreshAuctionPhases]);
     // ===========================================
 
     // ==== Auction handlers (new) ====
-    const onCommit = async () => {
+    const onCommit = async (formData = {}) => {
         setAuctionCommitPending(true); setAuctionCommitDone(false);
         setAuctionCommitError("");
         try {
@@ -431,10 +460,27 @@ export default function App() {
                 return;
             }
 
-            const qty = Number(document.getElementById("AuctionCommitQty").value);
-            const price = Number(document.getElementById("AuctionCommitPrice").value);
-            const saltInput = document.getElementById("AuctionCommitSalt").value;
-            const proofStr  = document.getElementById("AuctionCommitProof").value.trim();
+            const qtyInput = (formData.qty ?? "").toString();
+            const priceInput = (formData.price ?? "").toString();
+            const saltInput = (formData.salt ?? "").toString();
+            const proofInput = (formData.proof ?? "").toString();
+
+            const qty = Number(qtyInput);
+            const price = Number(priceInput);
+            if (
+                qtyInput.trim() === "" ||
+                priceInput.trim() === "" ||
+                Number.isNaN(qty) ||
+                Number.isNaN(price) ||
+                !Number.isFinite(qty) ||
+                !Number.isFinite(price) ||
+                qty <= 0 ||
+                price < 0
+            ) {
+                console.log("Commit validation failed:", { qtyInput, priceInput, qty, price });
+                throw new Error(`Invalid quantity or price (qty=${qtyInput}, price=${priceInput})`);
+            }
+            const proofStr  = proofInput.trim();
 
             const saltBytes = web3.utils.keccak256(saltInput);
             const commitHash = web3.utils.soliditySha3(
@@ -443,6 +489,13 @@ export default function App() {
                 {t:'bytes32', v: saltBytes},
                 {t:'address', v: address}
             );
+            console.log("Commit hash payload:", {
+                qty,
+                price,
+                saltBytes,
+                address,
+                hash: commitHash
+            });
 
             let proof = [];
             if (proofStr.length > 0) {
@@ -459,17 +512,19 @@ export default function App() {
 
             setAuctionCommitDone(true);
             setAuctionCommitError("");
+            await refreshAuctionPhases();
         } catch (err) {
             console.log("Commit failed:", err);
             setAuctionCommitDone(false);
             const message = err && err.message ? err.message : "Commit failed";
             setAuctionCommitError(message);
+            refreshAuctionPhases();
         }
         setAuctionCommitPending(false);
     };
 
     // ==== Modified onReveal: auto-generate randPart if input is missing/empty ====
-    const onReveal = async () => {
+    const onReveal = async (formData = {}) => {
         setAuctionRevealPending(true); setAuctionRevealDone(false);
         setAuctionRevealError("");
         try {
@@ -480,22 +535,45 @@ export default function App() {
                 return;
             }
 
-            const qty = Number(document.getElementById("AuctionRevealQty").value);
-            const price = Number(document.getElementById("AuctionRevealPrice").value);
-            const saltInput = document.getElementById("AuctionRevealSalt").value;
+            const qtyInput = (formData.qty ?? "").toString();
+            const priceInput = (formData.price ?? "").toString();
+            const saltInput = (formData.salt ?? "").toString();
+            const randRaw = (formData.rand ?? "").toString();
+            const qty = Number(qtyInput);
+            const price = Number(priceInput);
 
             // Try read optional randPart input; if absent or empty, auto-generate one.
-            const randEl = document.getElementById("AuctionRevealRand");
-            const randInput = (randEl && randEl.value && randEl.value.length > 0)
-                ? randEl.value
+            const randInput = (randRaw && randRaw.length > 0)
+                ? randRaw
                 : (address + ":" + Date.now().toString());
 
+            if (
+                qtyInput.trim() === "" ||
+                priceInput.trim() === "" ||
+                Number.isNaN(qty) ||
+                Number.isNaN(price) ||
+                !Number.isFinite(qty) ||
+                !Number.isFinite(price) ||
+                qty <= 0 ||
+                price < 0
+            ) {
+                console.log("Reveal validation failed:", {
+                    qtyInput,
+                    priceInput,
+                    qty,
+                    price
+                });
+                throw new Error(`Invalid quantity or price (qty=${qtyInput}, price=${priceInput})`);
+            }
             const saltBytes = web3.utils.keccak256(saltInput);
             const randBytes = web3.utils.keccak256(randInput);
-
-            if (!Number.isFinite(qty) || !Number.isFinite(price) || qty <= 0 || price < 0) {
-                throw new Error("Invalid quantity or price");
-            }
+            const revealHash = web3.utils.soliditySha3(
+                { t: 'uint256', v: qty },
+                { t: 'uint256', v: price },
+                { t: 'bytes32', v: saltBytes },
+                { t: 'address', v: address }
+            );
+            console.log("Reveal verifying hash:", revealHash);
 
             // value: price * qty (use BigNumber to avoid overflow)
             const priceBN = ethers.BigNumber.from(String(price));
@@ -504,16 +582,19 @@ export default function App() {
 
             await contract_auction.methods.revealBid(qty, price, saltBytes, randBytes).send({
                 from: address,
-                value: val
+                value: val,
+                gas: 2_000_000
             });
 
             setAuctionRevealDone(true);
             setAuctionRevealError("");
+            await refreshAuctionPhases();
         } catch (err) {
             console.log("Reveal failed:", err);
             setAuctionRevealDone(false);
             const message = err && err.message ? err.message : "Reveal failed";
             setAuctionRevealError(message);
+            refreshAuctionPhases();
         }
         setAuctionRevealPending(false);
     };
@@ -523,6 +604,7 @@ export default function App() {
             await contract_auction.methods.finalize().send({ from: address });
             const st  = await contract_auction.methods.settled().call();
             setSettled(Boolean(st));
+            await refreshAuctionPhases();
         } catch (err) {
             console.log("Finalize failed:", err);
         }
@@ -599,6 +681,10 @@ export default function App() {
                 whitelistOn={whitelistOn}
                 settled={settled}
                 clearingPrice={clearingPrice}
+                sellerAddress={sellerAddress}
+                userAddress={address}
+                inCommitPhase={inCommitPhase}
+                inRevealPhase={inRevealPhase}
                 // actions
                 onCommit={onCommit}
                 onReveal={onReveal}

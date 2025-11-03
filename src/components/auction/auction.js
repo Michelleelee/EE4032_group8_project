@@ -13,6 +13,50 @@ import "./auction.css";
 export default function Auction(props) {
   const [commitCountdown, setCommitCountdown] = useState("");
   const [revealCountdown, setRevealCountdown] = useState("");
+  const [commitForm, setCommitForm] = useState({
+    qty: "",
+    price: "",
+    salt: "",
+    proof: ""
+  });
+  const [revealForm, setRevealForm] = useState({
+    qty: "",
+    price: "",
+    salt: "",
+    rand: ""
+  });
+
+  const userAddr = props.userAddress ? props.userAddress.toLowerCase() : "";
+  const sellerAddr = props.sellerAddress ? props.sellerAddress.toLowerCase() : "";
+  const isSeller = userAddr && sellerAddr && userAddr === sellerAddr;
+  const inCommitPhase = Boolean(props.inCommitPhase);
+  const inRevealPhase = Boolean(props.inRevealPhase);
+  const isFinalizePhase = !inCommitPhase && !inRevealPhase;
+  const isSettled = Boolean(props.settled);
+  const hasPhaseData = Boolean(sellerAddr) || inCommitPhase || inRevealPhase || isSettled;
+
+  const roleText = sellerAddr
+    ? (isSeller
+        ? "You are the seller! Welcome to the auction."
+        : "You are the buyer! Welcome to the auction.")
+    : "Loading role information...";
+
+  let phaseText = "Loading phase information...";
+  if (inCommitPhase) {
+    phaseText = "It is the commit phase.";
+  } else if (inRevealPhase) {
+    phaseText = "It is the reveal phase.";
+  } else if (isSettled) {
+    phaseText = "It is the finalized phase.";
+  } else if (hasPhaseData && isFinalizePhase) {
+    phaseText = "It is the finalized phase.";
+  }
+
+  const showCommitBlock = inCommitPhase;
+  const showRevealBlock = inRevealPhase;
+  const showSellerFinalizeBlock = hasPhaseData && isSeller && isFinalizePhase && !isSettled;
+  const showBuyerFinalizeInfo = hasPhaseData && !isSeller && isFinalizePhase && !isSettled;
+  const showSettledInfo = hasPhaseData && isSettled;
 
   useEffect(() => {
     const formatCountdown = (seconds) => {
@@ -44,6 +88,28 @@ export default function Auction(props) {
     return () => clearInterval(timer);
   }, [props.commitDeadline, props.revealDeadline]);
 
+  useEffect(() => {
+    if (props.commitDone) {
+      setCommitForm({
+        qty: "",
+        price: "",
+        salt: "",
+        proof: ""
+      });
+    }
+  }, [props.commitDone]);
+
+  useEffect(() => {
+    if (props.revealDone) {
+      setRevealForm({
+        qty: "",
+        price: "",
+        salt: "",
+        rand: ""
+      });
+    }
+  }, [props.revealDone]);
+
   if (!props.isConnected) {
     return <div>Please connect MetaMask first.</div>;
   }
@@ -51,46 +117,116 @@ export default function Auction(props) {
   return (
     <div className="auction-wrap">
       <h2>Sealed-Bid k‑Unit Auction (Uniform Price)</h2>
+      <p>{roleText}</p>
+      <p>{phaseText}</p>
 
-      <section className="panel">
-        <h3>Commit Phase</h3>
-        <p>I submit a sealed commitment hash of (qty, price, salt, my address). I also send the fixed deposit.</p>
-        <p>Commit phase ends in: {commitCountdown}</p>
-        <div className="row">
-          <input id="AuctionCommitQty" type="number" placeholder="quantity (e.g., 2)" />
-          <input id="AuctionCommitPrice" type="number" placeholder="price (wei, e.g., 1000000000000000)" />
-          <input id="AuctionCommitSalt" type="text" placeholder="salt (random text or hex)" />
-        </div>
-        <div className="row">
-          <input id="AuctionCommitProof" type="text" placeholder="whitelist proof (comma-separated 0x..., leave empty if off)" />
-        </div>
-        <button onClick={props.onCommit}>Commit Bid</button>
-        {props.commitPending && <p>Committing...</p>}
-        {props.commitDone && <p>Committed. I will reveal later.</p>}
-        {props.commitError && <p className="error-text">Commit failed: {props.commitError}</p>}
-      </section>
+      {showCommitBlock && (
+        <section className="panel">
+          <h3>Commit Phase</h3>
+          <p>I submit a sealed commitment hash of (qty, price, salt, my address). I also send the fixed deposit.</p>
+          <p>Commit phase ends in: {commitCountdown}</p>
+          <div className="row">
+            <input
+              id="AuctionCommitQty"
+              type="number"
+              placeholder="quantity (e.g., 2)"
+              value={commitForm.qty}
+              onChange={(e) => setCommitForm(form => ({ ...form, qty: e.target.value }))}
+            />
+            <input
+              id="AuctionCommitPrice"
+              type="number"
+              placeholder="price (wei, e.g., 1000000000000000)"
+              value={commitForm.price}
+              onChange={(e) => setCommitForm(form => ({ ...form, price: e.target.value }))}
+            />
+            <input
+              id="AuctionCommitSalt"
+              type="text"
+              placeholder="salt (random text or hex)"
+              value={commitForm.salt}
+              onChange={(e) => setCommitForm(form => ({ ...form, salt: e.target.value }))}
+            />
+          </div>
+          <div className="row">
+            <input
+              id="AuctionCommitProof"
+              type="text"
+              placeholder="whitelist proof (comma-separated 0x..., leave empty if off)"
+              value={commitForm.proof}
+              onChange={(e) => setCommitForm(form => ({ ...form, proof: e.target.value }))}
+            />
+          </div>
+          <button onClick={() => props.onCommit(commitForm)}>Commit Bid</button>
+          {props.commitPending && <p>Committing...</p>}
+          {props.commitDone && <p>Committed. I will reveal later.</p>}
+          {props.commitError && <p className="error-text">Commit failed: {props.commitError}</p>}
+        </section>
+      )}
 
-      <section className="panel">
-        <h3>Reveal Phase</h3>
-        <p>I must reveal exactly the same (qty, price, salt) and pay price*qty as escrow. I also add `randPart` as extra randomness.</p>
-        <p>Reveal phase ends in: {revealCountdown}</p>
-        <div className="row">
-          <input id="AuctionRevealQty" type="number" placeholder="quantity" />
-          <input id="AuctionRevealPrice" type="number" placeholder="price (wei)" />
-          <input id="AuctionRevealSalt" type="text" placeholder="salt (same as commit)" />
-          <input id="AuctionRevealRand" type="text" placeholder="randPart (any random text or hex)" />
-        </div>
-        <button onClick={props.onReveal}>Reveal Bid</button>
-        {props.revealPending && <p>Revealing...</p>}
-        {props.revealDone && <p>Revealed. I am waiting for finalize.</p>}
-        {props.revealError && <p className="error-text">Reveal failed: {props.revealError}</p>}
-      </section>
+      {showRevealBlock && (
+        <section className="panel">
+          <h3>Reveal Phase</h3>
+          <p>I must reveal exactly the same (qty, price, salt) and pay price*qty as escrow. I also add `randPart` as extra randomness.</p>
+          <p>Reveal phase ends in: {revealCountdown}</p>
+          <div className="row">
+            <input
+              id="AuctionRevealQty"
+              type="number"
+              placeholder="quantity"
+              value={revealForm.qty}
+              onChange={(e) => setRevealForm(form => ({ ...form, qty: e.target.value }))}
+            />
+            <input
+              id="AuctionRevealPrice"
+              type="number"
+              placeholder="price (wei)"
+              value={revealForm.price}
+              onChange={(e) => setRevealForm(form => ({ ...form, price: e.target.value }))}
+            />
+            <input
+              id="AuctionRevealSalt"
+              type="text"
+              placeholder="salt (same as commit)"
+              value={revealForm.salt}
+              onChange={(e) => setRevealForm(form => ({ ...form, salt: e.target.value }))}
+            />
+            <input
+              id="AuctionRevealRand"
+              type="text"
+              placeholder="randPart (any random text or hex)"
+              value={revealForm.rand}
+              onChange={(e) => setRevealForm(form => ({ ...form, rand: e.target.value }))}
+            />
+          </div>
+          <button onClick={() => props.onReveal(revealForm)}>Reveal Bid</button>
+          {props.revealPending && <p>Revealing...</p>}
+          {props.revealDone && <p>Revealed. I am waiting for finalize.</p>}
+          {props.revealError && <p className="error-text">Reveal failed: {props.revealError}</p>}
+        </section>
+      )}
 
-      <section className="panel">
-        <h3>Seller Controls</h3>
-        <p>I only use this with the seller account (the deployer).</p>
-        <button onClick={props.onFinalize}>Finalize Auction</button>
-      </section>
+      {showSellerFinalizeBlock && (
+        <section className="panel">
+          <h3>Seller Controls</h3>
+          <p>I only use this with the seller account (the deployer).</p>
+          <button onClick={props.onFinalize}>Finalize Auction</button>
+        </section>
+      )}
+
+      {showBuyerFinalizeInfo && (
+        <section className="panel">
+          <h3>Seller Controls</h3>
+          <p>Please wait for the seller to finalize this auction.</p>
+        </section>
+      )}
+
+      {showSettledInfo && (
+        <section className="panel">
+          <h3>Settlement</h3>
+          <p>This auction has been finalized.</p>
+        </section>
+      )}
 
       <section className="panel">
         <h3>Status</h3>
