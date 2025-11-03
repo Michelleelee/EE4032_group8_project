@@ -1,2 +1,2 @@
-# EE4032_group8_project
-EE4032_group8_project
+
+This project is presented as the interface demo for EE4032 Blockchain Engineering of NUS.
