@@ -2,7 +2,7 @@
 // I keep the deployed Auction contract address and ABI here.
 // This file is consumed by App.js to instantiate the web3 contract.
 
-export const CONTRACT_ADDRESS_AUCTION = "0x7eF170330788B25B608787a0036e3dda2778eC74";
+export const CONTRACT_ADDRESS_AUCTION = "0xbc247e71CB7fd0c631A67Eac8981309e433176F8";
 
 export const CONTRACT_ABI_AUCTION = [
 	{
@@ -518,4 +518,4 @@ export const CONTRACT_ABI_AUCTION = [
 		"stateMutability": "view",
 		"type": "function"
 	}
-]
+];

@@ -1,5 +1,5 @@
 // src/components/auction/auction.js
-import React from "react";
+import React, { useEffect, useState } from "react";
 import "./auction.css";
 
 /*
@@ -11,6 +11,38 @@ import "./auction.css";
 */
 
 export default function Auction(props) {
+  const [commitCountdown, setCommitCountdown] = useState("");
+  const [revealCountdown, setRevealCountdown] = useState("");
+
+  useEffect(() => {
+    const formatCountdown = (seconds) => {
+      if (seconds <= 0) {
+        return "ended";
+      }
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = Math.floor(seconds % 60);
+      const parts = [
+        h > 0 ? `${h}h` : null,
+        m > 0 ? `${m}m` : null,
+        `${s}s`,
+      ].filter(Boolean);
+      return parts.join(" ");
+    };
+
+    const tick = () => {
+      const now = Math.floor(Date.now() / 1000);
+      const commitDiff = Number(props.commitDeadline || 0) - now;
+      const revealDiff = Number(props.revealDeadline || 0) - now;
+      setCommitCountdown(formatCountdown(commitDiff));
+      setRevealCountdown(formatCountdown(revealDiff));
+    };
+
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [props.commitDeadline, props.revealDeadline]);
+
   if (!props.isConnected) {
     return <div>Please connect MetaMask first.</div>;
   }
@@ -22,6 +54,7 @@ export default function Auction(props) {
       <section className="panel">
         <h3>Commit Phase</h3>
         <p>I submit a sealed commitment hash of (qty, price, salt, my address). I also send the fixed deposit.</p>
+        <p>Commit phase ends in: {commitCountdown}</p>
         <div className="row">
           <input id="AuctionCommitQty" type="number" placeholder="quantity (e.g., 2)" />
           <input id="AuctionCommitPrice" type="number" placeholder="price (wei, e.g., 1000000000000000)" />
@@ -38,6 +71,7 @@ export default function Auction(props) {
       <section className="panel">
         <h3>Reveal Phase</h3>
         <p>I must reveal exactly the same (qty, price, salt) and pay price*qty as escrow. I also add `randPart` as extra randomness.</p>
+        <p>Reveal phase ends in: {revealCountdown}</p>
         <div className="row">
           <input id="AuctionRevealQty" type="number" placeholder="quantity" />
           <input id="AuctionRevealPrice" type="number" placeholder="price (wei)" />

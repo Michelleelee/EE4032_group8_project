@@ -61,7 +61,6 @@ export default function App() {
 
     const navigate = useNavigate();
     const {ethereum} = window;
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
     const web3 = new Web3(window.ethereum || "http://localhost:8545");
     const contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
     const contract_2 = new web3.eth.Contract(CONTRACT_ABI_2, CONTRACT_ADDRESS_2);
@@ -78,10 +77,57 @@ export default function App() {
             const accounts = await ethereum.request({
                 method: 'eth_requestAccounts',
             });
-            const chainId = await ethereum.request({
-                method: 'eth_chainId',
-            });
+            const desiredChainId = '0xaa36a7'; // Sepolia
+            const ensureSepolia = async () => {
+                let current = await ethereum.request({ method: 'eth_chainId' });
+                if (current === desiredChainId) return desiredChainId;
+                try {
+                    await ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: desiredChainId }],
+                    });
+                    return desiredChainId;
+                } catch (switchError) {
+                    if (switchError.code === 4902) {
+                        try {
+                            await ethereum.request({
+                                method: 'wallet_addEthereumChain',
+                                params: [{
+                                    chainId: desiredChainId,
+                                    chainName: 'Sepolia Test Network',
+                                    nativeCurrency: {
+                                        name: 'Sepolia Ether',
+                                        symbol: 'ETH',
+                                        decimals: 18,
+                                    },
+                                    rpcUrls: ['https://rpc.sepolia.org'],
+                                    blockExplorerUrls: ['https://sepolia.etherscan.io'],
+                                }],
+                            });
+                            return desiredChainId;
+                        } catch (addError) {
+                            console.log('Add Sepolia network failed:', addError);
+                            alert('请在 MetaMask 中添加 Sepolia 测试网络后再试一次。');
+                            return null;
+                        }
+                    }
+                    if (switchError.code === 4001) {
+                        alert('需要切换到 Sepolia 测试网才能继续。请重新点击连接并确认网络切换。');
+                    } else {
+                        console.log('Switch network failed:', switchError);
+                        alert('切换到 Sepolia 网络失败，详情请查看控制台。');
+                    }
+                    return null;
+                }
+            };
 
+            const chainId = await ensureSepolia();
+            if (!chainId) {
+                setIsConnected(false);
+                return;
+            }
+
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
             let balanceVal = await provider.getBalance(accounts[0]);
             let bal = ethers.utils.formatEther(balanceVal);
 
@@ -326,6 +372,8 @@ export default function App() {
                 const dep = await contract_auction.methods.minDeposit().call();
                 const cd  = await contract_auction.methods.commitDeadline().call();
                 const rd  = await contract_auction.methods.revealDeadline().call();
+                console.log("commit deadline from chain:", cd);
+                console.log("reveal deadline from chain:", rd);
                 const wOn = await contract_auction.methods.whitelistOn().call();
                 const st  = await contract_auction.methods.settled().call();
                 setKUnits(Number(k_));
