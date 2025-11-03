@@ -18,6 +18,7 @@ export default function Auction(props) {
     const formatCountdown = (seconds) => {
       if (seconds <= 0) {
         return "ended";
+        // return "0.0";
       }
       const h = Math.floor(seconds / 3600);
       const m = Math.floor((seconds % 3600) / 60);
@@ -66,6 +67,7 @@ export default function Auction(props) {
         <button onClick={props.onCommit}>Commit Bid</button>
         {props.commitPending && <p>Committing...</p>}
         {props.commitDone && <p>Committed. I will reveal later.</p>}
+        {props.commitError && <p className="error-text">Commit failed: {props.commitError}</p>}
       </section>
 
       <section className="panel">
@@ -81,6 +83,7 @@ export default function Auction(props) {
         <button onClick={props.onReveal}>Reveal Bid</button>
         {props.revealPending && <p>Revealing...</p>}
         {props.revealDone && <p>Revealed. I am waiting for finalize.</p>}
+        {props.revealError && <p className="error-text">Reveal failed: {props.revealError}</p>}
       </section>
 
       <section className="panel">

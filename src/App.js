@@ -57,6 +57,8 @@ export default function App() {
     const [auctionCommitDone, setAuctionCommitDone] = useState(false);
     const [auctionRevealPending, setAuctionRevealPending] = useState(false);
     const [auctionRevealDone, setAuctionRevealDone] = useState(false);
+    const [auctionRevealError, setAuctionRevealError] = useState("");
+    const [auctionCommitError, setAuctionCommitError] = useState("");
     // =================================
 
     const navigate = useNavigate();
@@ -374,6 +376,15 @@ export default function App() {
                 const rd  = await contract_auction.methods.revealDeadline().call();
                 console.log("commit deadline from chain:", cd);
                 console.log("reveal deadline from chain:", rd);
+                const nowTs = Math.floor(Date.now() / 1000);
+                let latestChainTs = null;
+                try {
+                    const latestBlock = await web3.eth.getBlock("latest");
+                    latestChainTs = Number(latestBlock && latestBlock.timestamp);
+                } catch (blockErr) {
+                    console.log("Read latest block timestamp failed:", blockErr);
+                }
+                console.log("local now (unix):", nowTs, "chain latest block timestamp:", latestChainTs);
                 const wOn = await contract_auction.methods.whitelistOn().call();
                 const st  = await contract_auction.methods.settled().call();
                 setKUnits(Number(k_));
@@ -411,7 +422,15 @@ export default function App() {
     // ==== Auction handlers (new) ====
     const onCommit = async () => {
         setAuctionCommitPending(true); setAuctionCommitDone(false);
+        setAuctionCommitError("");
         try {
+            const inCommitPhase = await contract_auction.methods.inCommit().call();
+            if (!inCommitPhase) {
+                setAuctionCommitError("Commit phase is closed.");
+                setAuctionCommitPending(false);
+                return;
+            }
+
             const qty = Number(document.getElementById("AuctionCommitQty").value);
             const price = Number(document.getElementById("AuctionCommitPrice").value);
             const saltInput = document.getElementById("AuctionCommitSalt").value;
@@ -439,9 +458,12 @@ export default function App() {
             });
 
             setAuctionCommitDone(true);
+            setAuctionCommitError("");
         } catch (err) {
             console.log("Commit failed:", err);
             setAuctionCommitDone(false);
+            const message = err && err.message ? err.message : "Commit failed";
+            setAuctionCommitError(message);
         }
         setAuctionCommitPending(false);
     };
@@ -449,7 +471,15 @@ export default function App() {
     // ==== Modified onReveal: auto-generate randPart if input is missing/empty ====
     const onReveal = async () => {
         setAuctionRevealPending(true); setAuctionRevealDone(false);
+        setAuctionRevealError("");
         try {
+            const inRevealPhase = await contract_auction.methods.inReveal().call();
+            if (!inRevealPhase) {
+                setAuctionRevealError("Reveal phase is closed.");
+                setAuctionRevealPending(false);
+                return;
+            }
+
             const qty = Number(document.getElementById("AuctionRevealQty").value);
             const price = Number(document.getElementById("AuctionRevealPrice").value);
             const saltInput = document.getElementById("AuctionRevealSalt").value;
@@ -463,8 +493,14 @@ export default function App() {
             const saltBytes = web3.utils.keccak256(saltInput);
             const randBytes = web3.utils.keccak256(randInput);
 
-            // value: price * qty (use BN to avoid overflow)
-            const val = web3.utils.toBN(String(price)).mul(web3.utils.toBN(String(qty))).toString();
+            if (!Number.isFinite(qty) || !Number.isFinite(price) || qty <= 0 || price < 0) {
+                throw new Error("Invalid quantity or price");
+            }
+
+            // value: price * qty (use BigNumber to avoid overflow)
+            const priceBN = ethers.BigNumber.from(String(price));
+            const qtyBN = ethers.BigNumber.from(String(qty));
+            const val = priceBN.mul(qtyBN).toString();
 
             await contract_auction.methods.revealBid(qty, price, saltBytes, randBytes).send({
                 from: address,
@@ -472,9 +508,12 @@ export default function App() {
             });
 
             setAuctionRevealDone(true);
+            setAuctionRevealError("");
         } catch (err) {
             console.log("Reveal failed:", err);
             setAuctionRevealDone(false);
+            const message = err && err.message ? err.message : "Reveal failed";
+            setAuctionRevealError(message);
         }
         setAuctionRevealPending(false);
     };
@@ -569,6 +608,8 @@ export default function App() {
                 commitDone={auctionCommitDone}
                 revealPending={auctionRevealPending}
                 revealDone={auctionRevealDone}
+                revealError={auctionRevealError}
+                commitError={auctionCommitError}
             />
         )
     }
