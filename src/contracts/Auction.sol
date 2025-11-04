@@ -234,7 +234,7 @@ contract Auction {
 
         remaining = k;
         iStart = 0;
-        while (iStart < m && remaining > 0) {
+        while (iStart < m) {
             uint256 levelPrice = arr[iStart].price;
             uint256 iEnd = iStart;
             while (iEnd < m && arr[iEnd].price == levelPrice) iEnd++;
