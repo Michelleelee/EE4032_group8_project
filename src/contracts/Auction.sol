@@ -10,6 +10,7 @@ contract Auction {
     uint256 public immutable k;
     uint256 public immutable reservePrice;
     uint256 public immutable minDeposit;
+    uint256 public immutable finalizeReward;
     bytes32 public immutable whitelistRoot;
     bool    public immutable whitelistOn;
 
@@ -17,6 +18,7 @@ contract Auction {
     uint256 public revealDeadline;
 
     bool public settled;
+    uint256 public immutable finalizeGrace;
 
     mapping(address => bytes32) public commitOf;
     mapping(address => bool)    public hasCommit;
@@ -35,6 +37,7 @@ contract Auction {
     event Slashed(address indexed bidder, uint256 amount);
     event Winner(address indexed bidder, uint256 unitsWon, uint256 payPerUnit);
     event Settled(uint256 clearingPrice, uint256 totalUnitsSold, uint256 sellerProceeds);
+    event FinalizedBy(address indexed finalizer, uint256 reward);
 
     constructor(
         uint256 _k,
@@ -42,20 +45,25 @@ contract Auction {
         uint256 revealDuration,
         uint256 _reservePrice,
         uint256 _minDeposit,
+        uint256 _finalizeGrace,
+        uint256 _finalizeReward,
         bytes32 _whitelistRoot,
         bool _whitelistOn
     ) {
         require(_k > 0, "k=0");
         require(commitDuration > 0 && revealDuration > 0, "bad durations");
+        require(_finalizeGrace > 0, "bad finalize grace");
         seller         = msg.sender;
         k              = _k;
         reservePrice   = _reservePrice;
         minDeposit     = _minDeposit;
+        finalizeReward = _finalizeReward;
         whitelistRoot  = _whitelistRoot;
         whitelistOn    = _whitelistOn;
 
         commitDeadline = block.timestamp + commitDuration;
         revealDeadline = commitDeadline + revealDuration;
+        finalizeGrace  = _finalizeGrace;
     }
 
     function _verifyWhitelist(bytes32[] calldata proof, bytes32 leaf) internal view returns (bool ok) {
@@ -120,11 +128,22 @@ contract Auction {
         emit Revealed(msg.sender, qty, price);
     }
 
+    function finalizeGraceDeadline() external view returns (uint256) {
+        return revealDeadline + finalizeGrace;
+    }
+
     function finalize() external {
-        require(msg.sender == seller, "only seller");
+        bool sellerFinalize = msg.sender == seller;
+        if (!sellerFinalize) {
+            require(block.timestamp >= revealDeadline + finalizeGrace, "finalize grace active");
+            require(hasCommit[msg.sender], "only participant");
+        }
         require(!settled, "settled");
         require(block.timestamp >= revealDeadline, "reveal not ended");
         settled = true;
+
+        bool rewardEligible = !sellerFinalize && finalizeReward > 0;
+        uint256 reward = 0;
 
         uint256 slashed = 0;
         for (uint256 i = 0; i < committers.length; i++) {
@@ -141,11 +160,23 @@ contract Auction {
 
         uint256 n = revealed.length;
         if (n == 0) {
-            if (slashed > 0) {
-                (bool ok0,) = payable(seller).call{value: slashed}("");
+            uint256 sellerAmount = slashed;
+            if (rewardEligible) {
+                uint256 desired = finalizeReward;
+                if (desired > sellerAmount) desired = sellerAmount;
+                reward = desired;
+                if (reward > 0) {
+                    sellerAmount -= reward;
+                    (bool okF0,) = payable(msg.sender).call{value: reward}("");
+                    require(okF0, "finalizer reward fail");
+                }
+            }
+            if (sellerAmount > 0) {
+                (bool ok0,) = payable(seller).call{value: sellerAmount}("");
                 require(ok0, "slash xfer fail");
             }
-            emit Settled(0, 0, slashed);
+            emit FinalizedBy(msg.sender, reward);
+            emit Settled(0, 0, sellerAmount);
             return;
         }
 
@@ -161,11 +192,23 @@ contract Auction {
             }
         }
         if (m == 0) {
-            if (slashed > 0) {
-                (bool ok1,) = payable(seller).call{value: slashed}("");
+            uint256 sellerAmount2 = slashed;
+            if (rewardEligible) {
+                uint256 desired2 = finalizeReward;
+                if (desired2 > sellerAmount2) desired2 = sellerAmount2;
+                reward = desired2;
+                if (reward > 0) {
+                    sellerAmount2 -= reward;
+                    (bool okF1,) = payable(msg.sender).call{value: reward}("");
+                    require(okF1, "finalizer reward fail");
+                }
+            }
+            if (sellerAmount2 > 0) {
+                (bool ok1,) = payable(seller).call{value: sellerAmount2}("");
                 require(ok1, "slash xfer fail");
             }
-            emit Settled(0, 0, slashed);
+            emit FinalizedBy(msg.sender, reward);
+            emit Settled(0, 0, sellerAmount2);
             return;
         }
 
@@ -222,11 +265,23 @@ contract Auction {
         }
 
         if (totalSold == 0) {
-            if (slashed > 0) {
-                (bool ok2,) = payable(seller).call{value: slashed}("");
+            uint256 sellerAmount3 = slashed;
+            if (rewardEligible) {
+                uint256 desired3 = finalizeReward;
+                if (desired3 > sellerAmount3) desired3 = sellerAmount3;
+                reward = desired3;
+                if (reward > 0) {
+                    sellerAmount3 -= reward;
+                    (bool okF2,) = payable(msg.sender).call{value: reward}("");
+                    require(okF2, "finalizer reward fail");
+                }
+            }
+            if (sellerAmount3 > 0) {
+                (bool ok2,) = payable(seller).call{value: sellerAmount3}("");
                 require(ok2, "slash xfer fail");
             }
-            emit Settled(0, 0, slashed);
+            emit FinalizedBy(msg.sender, reward);
+            emit Settled(0, 0, sellerAmount3);
             return;
         }
 
@@ -289,12 +344,25 @@ contract Auction {
             iStart = iEnd;
         }
 
-        if (sellerProceeds > 0) {
-            (bool okS,) = payable(seller).call{value: sellerProceeds}("");
+        uint256 sellerPayout = sellerProceeds;
+        if (rewardEligible) {
+            uint256 desiredReward = finalizeReward;
+            if (desiredReward > sellerPayout) desiredReward = sellerPayout;
+            reward = desiredReward;
+            if (reward > 0) {
+                sellerPayout -= reward;
+                (bool okF,) = payable(msg.sender).call{value: reward}("");
+                require(okF, "finalizer reward fail");
+            }
+        }
+
+        if (sellerPayout > 0) {
+            (bool okS,) = payable(seller).call{value: sellerPayout}("");
             require(okS, "seller transfer fail");
         }
 
-        emit Settled(clearing, totalSold, sellerProceeds);
+        emit FinalizedBy(msg.sender, reward);
+        emit Settled(clearing, totalSold, sellerPayout);
     }
 
     function getCommitters() external view returns (address[] memory) { return committers; }

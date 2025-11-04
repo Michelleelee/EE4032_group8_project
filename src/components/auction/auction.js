@@ -13,6 +13,8 @@ import "./auction.css";
 export default function Auction(props) {
   const [commitCountdown, setCommitCountdown] = useState("");
   const [revealCountdown, setRevealCountdown] = useState("");
+  const [finalizeCountdown, setFinalizeCountdown] = useState("");
+  const [finalizeSecondsLeft, setFinalizeSecondsLeft] = useState(0);
   const [commitForm, setCommitForm] = useState({
     qty: "",
     price: "",
@@ -79,14 +81,17 @@ export default function Auction(props) {
       const now = Math.floor(Date.now() / 1000);
       const commitDiff = Number(props.commitDeadline || 0) - now;
       const revealDiff = Number(props.revealDeadline || 0) - now;
+      const finalizeDiff = Number(props.finalizeDeadline || 0) - now;
       setCommitCountdown(formatCountdown(commitDiff));
       setRevealCountdown(formatCountdown(revealDiff));
+      setFinalizeCountdown(formatCountdown(finalizeDiff));
+      setFinalizeSecondsLeft(finalizeDiff > 0 ? finalizeDiff : 0);
     };
 
     tick();
     const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
-  }, [props.commitDeadline, props.revealDeadline]);
+  }, [props.commitDeadline, props.revealDeadline, props.finalizeDeadline]);
 
   useEffect(() => {
     if (props.commitDone) {
@@ -208,16 +213,31 @@ export default function Auction(props) {
 
       {showSellerFinalizeBlock && (
         <section className="panel">
-          <h3>Seller Controls</h3>
-          <p>I only use this with the seller account (the deployer).</p>
+          <h3>Finalize Controls</h3>
+          <p>You can finalize now to settle all payments.</p>
+          {finalizeSecondsLeft > 0 ? (
+            <p>Buyer grace period remaining: {finalizeCountdown}.</p>
+          ) : (
+            <p>Grace period has expired. Buyers may also finalize.</p>
+          )}
           <button onClick={props.onFinalize}>Finalize Auction</button>
         </section>
       )}
 
       {showBuyerFinalizeInfo && (
         <section className="panel">
-          <h3>Seller Controls</h3>
-          <p>Please wait for the seller to finalize this auction.</p>
+          <h3>Finalize Controls</h3>
+          {finalizeSecondsLeft > 0 ? (
+            <>
+              <p>Please wait for the seller to finalize.</p>
+              <p>In {finalizeCountdown}, any committed buyer may finalize and earn up to {props.finalizeReward} wei as an incentive.</p>
+            </>
+          ) : (
+            <>
+              <p>Grace period expired. You can finalize now and earn up to {props.finalizeReward} wei for unlocking the payout.</p>
+              <button onClick={props.onFinalize}>Finalize Auction</button>
+            </>
+          )}
         </section>
       )}
 
@@ -235,6 +255,9 @@ export default function Auction(props) {
         <p>min deposit (wei): {props.minDeposit}</p>
         <p>commit deadline (unix): {props.commitDeadline}</p>
         <p>reveal deadline (unix): {props.revealDeadline}</p>
+        <p>finalize grace (s): {props.finalizeGrace}</p>
+        <p>finalize reward (wei): {props.finalizeReward}</p>
+        <p>buyer finalize unlock (unix): {props.finalizeDeadline}</p>
         <p>whitelist on: {String(props.whitelistOn)}</p>
         <p>settled: {String(props.settled)}</p>
         {props.settled && <p><b>Uniform Clearing Price:</b> {props.clearingPrice} wei per unit</p>}

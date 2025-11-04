@@ -2,9 +2,34 @@
 // I keep the deployed Auction contract address and ABI here.
 // This file is consumed by App.js to instantiate the web3 contract.
 
-export const CONTRACT_ADDRESS_AUCTION = "0xbB16C875F02b0c71FF8210a555f68D568d560e93";
+export const CONTRACT_ADDRESS_AUCTION = "0x26645F0490BAac2307b2A1CBeb8F8c57f35d907A";
 
 export const CONTRACT_ABI_AUCTION = [
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "commitHash",
+				"type": "bytes32"
+			},
+			{
+				"internalType": "bytes32[]",
+				"name": "proof",
+				"type": "bytes32[]"
+			}
+		],
+		"name": "commitBid",
+		"outputs": [],
+		"stateMutability": "payable",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "finalize",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
 	{
 		"inputs": [
 			{
@@ -30,6 +55,16 @@ export const CONTRACT_ABI_AUCTION = [
 			{
 				"internalType": "uint256",
 				"name": "_minDeposit",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "_finalizeGrace",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "_finalizeReward",
 				"type": "uint256"
 			},
 			{
@@ -64,6 +99,53 @@ export const CONTRACT_ABI_AUCTION = [
 		],
 		"name": "Committed",
 		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "finalizer",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "reward",
+				"type": "uint256"
+			}
+		],
+		"name": "FinalizedBy",
+		"type": "event"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "qty",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "price",
+				"type": "uint256"
+			},
+			{
+				"internalType": "bytes32",
+				"name": "salt",
+				"type": "bytes32"
+			},
+			{
+				"internalType": "bytes32",
+				"name": "randPart",
+				"type": "bytes32"
+			}
+		],
+		"name": "revealBid",
+		"outputs": [],
+		"stateMutability": "payable",
+		"type": "function"
 	},
 	{
 		"anonymous": false,
@@ -160,24 +242,6 @@ export const CONTRACT_ABI_AUCTION = [
 		"type": "event"
 	},
 	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "commitHash",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "bytes32[]",
-				"name": "proof",
-				"type": "bytes32[]"
-			}
-		],
-		"name": "commitBid",
-		"outputs": [],
-		"stateMutability": "payable",
-		"type": "function"
-	},
-	{
 		"inputs": [],
 		"name": "commitDeadline",
 		"outputs": [
@@ -249,9 +313,41 @@ export const CONTRACT_ABI_AUCTION = [
 	},
 	{
 		"inputs": [],
-		"name": "finalize",
-		"outputs": [],
-		"stateMutability": "nonpayable",
+		"name": "finalizeGrace",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "finalizeGraceDeadline",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "finalizeReward",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
 		"type": "function"
 	},
 	{
@@ -375,34 +471,6 @@ export const CONTRACT_ABI_AUCTION = [
 			}
 		],
 		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "qty",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "price",
-				"type": "uint256"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "salt",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "randPart",
-				"type": "bytes32"
-			}
-		],
-		"name": "revealBid",
-		"outputs": [],
-		"stateMutability": "payable",
 		"type": "function"
 	},
 	{

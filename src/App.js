@@ -62,6 +62,9 @@ export default function App() {
     const [sellerAddress, setSellerAddress] = useState(null);
     const [inCommitPhase, setInCommitPhase] = useState(false);
     const [inRevealPhase, setInRevealPhase] = useState(false);
+    const [finalizeGrace, setFinalizeGrace] = useState(120);
+    const [finalizeReward, setFinalizeReward] = useState(0);
+    const [finalizeDeadline, setFinalizeDeadline] = useState(0);
     // =================================
 
     const navigate = useNavigate();
@@ -391,6 +394,18 @@ export default function App() {
                 const dep = await contract_auction.methods.minDeposit().call();
                 const cd  = await contract_auction.methods.commitDeadline().call();
                 const rd  = await contract_auction.methods.revealDeadline().call();
+                let fg = 120;
+                let fr = 0;
+                try {
+                    fg = await contract_auction.methods.finalizeGrace().call();
+                } catch (_) {
+                    fg = 120;
+                }
+                try {
+                    fr = await contract_auction.methods.finalizeReward().call();
+                } catch (_) {
+                    fr = 0;
+                }
                 console.log("commit deadline from chain:", cd);
                 console.log("reveal deadline from chain:", rd);
                 const nowTs = Math.floor(Date.now() / 1000);
@@ -410,6 +425,9 @@ export default function App() {
                 setMinDeposit(Number(dep));
                 setCommitDeadline(Number(cd));
                 setRevealDeadline(Number(rd));
+                setFinalizeGrace(Number(fg));
+                setFinalizeReward(Number(fr));
+                setFinalizeDeadline(Number(rd) + Number(fg));
                 setWhitelistOn(Boolean(wOn));
                 setSettled(Boolean(st));
                 setSellerAddress(sellerAddr);
@@ -446,6 +464,12 @@ export default function App() {
         }, 10000);
         return () => clearInterval(intervalId);
     }, [contract_auction, refreshAuctionPhases]);
+
+    useEffect(() => {
+        if (revealDeadline) {
+            setFinalizeDeadline(Number(revealDeadline) + Number(finalizeGrace));
+        }
+    }, [revealDeadline, finalizeGrace]);
     // ===========================================
 
     // ==== Auction handlers (new) ====
@@ -678,6 +702,9 @@ export default function App() {
                 minDeposit={minDeposit}
                 commitDeadline={commitDeadline}
                 revealDeadline={revealDeadline}
+                finalizeGrace={finalizeGrace}
+                finalizeReward={finalizeReward}
+                finalizeDeadline={finalizeDeadline}
                 whitelistOn={whitelistOn}
                 settled={settled}
                 clearingPrice={clearingPrice}
