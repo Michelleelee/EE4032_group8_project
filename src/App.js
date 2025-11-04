@@ -1,7 +1,7 @@
-import {Routes, Route} from "react-router-dom";
-import {useNavigate} from "react-router-dom";
-import {useEffect, useState, useCallback} from 'react';
-import {ethers} from 'ethers';
+import { Routes, Route } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { useEffect, useState, useCallback } from 'react';
+import { ethers } from 'ethers';
 import Web3 from "web3";
 
 import './App.css';
@@ -16,6 +16,7 @@ import { CONTRACT_ABI_2, CONTRACT_ADDRESS_2 } from "./contracts/config_2";
 // ==== Auction imports (new) ====
 import Auction from "./components/auction/auction";
 import { CONTRACT_ABI_AUCTION, CONTRACT_ADDRESS_AUCTION } from "./contracts/config_auction";
+import { parseEther } from "ethers/lib/utils";
 // =================================
 
 export default function App() {
@@ -41,7 +42,7 @@ export default function App() {
     const [resetDone, setResetDone] = useState(false);
     const [showLead, setShowLead] = useState("0x0000000000000000000000000000000000000000");
     const [electionOn, setElectionOn] = useState(false);
-    const [revealOn, setRevealOn] =useState(false);
+    const [revealOn, setRevealOn] = useState(false);
     const [elected, setElected] = useState(false)
 
     // ==== Auction states (new) ====
@@ -68,7 +69,7 @@ export default function App() {
     // =================================
 
     const navigate = useNavigate();
-    const {ethereum} = window;
+    const { ethereum } = window;
     const web3 = new Web3(window.ethereum || "http://localhost:8545");
     const contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
     const contract_2 = new web3.eth.Contract(CONTRACT_ABI_2, CONTRACT_ADDRESS_2);
@@ -90,10 +91,10 @@ export default function App() {
         }
     }, [contract_auction]);
 
-////// connect to MetaMask. 
+    ////// connect to MetaMask. 
     const connectWallet = async () => {         // function that connect to METAMASK account, activated when clicking on 'connect'. 
         try {
-            if (!ethereum){
+            if (!ethereum) {
                 setHaveMetamask(false);
             }
             const accounts = await ethereum.request({
@@ -154,13 +155,13 @@ export default function App() {
             let bal = ethers.utils.formatEther(balanceVal);
 
             console.log(chainId);
-            if (chainId === '0x3'){
+            if (chainId === '0x3') {
                 setNetwork('Ropsten Test Network');
             }
-            else if (chainId === '0x5'){
+            else if (chainId === '0x5') {
                 setNetwork('Goerli Test Network');
             }
-            else if (chainId === '0xaa36a7'){
+            else if (chainId === '0xaa36a7') {
                 setNetwork('Sepolia Test Network');
             }
             else {
@@ -170,18 +171,18 @@ export default function App() {
             setBalance(bal);
             setIsConnected(true);
 
-            navigate("/InterfaceDemo/profile");
+            navigate("/auction");
         }
-        catch (error){
+        catch (error) {
             setIsConnected(false);
         }
     }
 
 
-////// Contract Deployment. 
+    ////// Contract Deployment. 
     // IMPORTANT: async / await is essential to get values instead of Promise. 
     const storeData = async (inputVal) => {
-        const res = await contract.methods.set(inputVal).send({from: address});
+        const res = await contract.methods.set(inputVal).send({ from: address });
         return res;
     }
 
@@ -190,10 +191,10 @@ export default function App() {
         return res;
     }
 
-    
-////// history recording. 
+
+    ////// history recording. 
     const RecordOverFlow = () => {
-        if (recordLen > maxRecordLen){
+        if (recordLen > maxRecordLen) {
             let outlierNum = recordLen - maxRecordLen;
             setHistoryRecord(current => current.splice(1, outlierNum));
             setRecordLen(maxRecordLen);
@@ -203,25 +204,25 @@ export default function App() {
     const RecordPush = (opr, val, detail) => {
         let stat = 1;
         let cost = 0;
-        if (val.length === 0){
+        if (val.length === 0) {
             val = 'NA';
             cost = 'NA';
             stat = 0;
         }
-        else{
-            if (opr === 'get'){
+        else {
+            if (opr === 'get') {
                 cost = 0;
                 stat = 1;
             }
-            else{
-                if (detail === 'null'){
+            else {
+                if (detail === 'null') {
                     setStoredPending(false);
                     setStoredDone(true);
                     console.log('Rejected');
                     cost = 'NA';
                     stat = 2;
                 }
-                else{
+                else {
                     setStoredDone(true);
                     console.log('Done');
                     console.log(detail);    // show the details of transaction. 
@@ -232,41 +233,41 @@ export default function App() {
         }
 
         const newRecord = {
-            id: recordLen + 1, 
-            address: address, 
-            operation: opr, 
-            value: val, 
-            cost: cost, 
+            id: recordLen + 1,
+            address: address,
+            operation: opr,
+            value: val,
+            cost: cost,
             status: stat
         };
-        if (recordLen === 0){
+        if (recordLen === 0) {
             setHistoryRecord([newRecord, newRecord]);
         }
-        else{
+        else {
             setHistoryRecord(current => [...current, newRecord]);
         }
         setRecordLen(recordLen + 1);
 
-        if (recordLen > maxRecordLen){
+        if (recordLen > maxRecordLen) {
             RecordOverFlow();
         }
     }
 
-////// Leader election
+    ////// Leader election
     const commitValUpdate = async () => {
         const commitVal = document.getElementById("CommitVal").value;
         setCommitPending(true);
         setCommitDone(false);
         setResetDone(false);
 
-        if (commitVal.length !== 0){
+        if (commitVal.length !== 0) {
             setElectionOn(true);
-            const [bit,key] = commitVal.split(",").map(Number);
+            const [bit, key] = commitVal.split(",").map(Number);
             try {
-                let res = await contract_2.methods.Commit(bit,key).send({from : address});
+                let res = await contract_2.methods.Commit(bit, key).send({ from: address });
                 setCommitDone(true);
-            }   
-            catch(err){
+            }
+            catch (err) {
                 setCommitDone(false);
                 console.log('error Commit');
             }
@@ -283,14 +284,14 @@ export default function App() {
         setRevealAccepted(false);
         setRevealPending(true);
 
-        if (revealVal.length !== 0){
+        if (revealVal.length !== 0) {
             setRevealPending(true)
-            let [bit,key] = await revealVal.split(",").map(Number);
+            let [bit, key] = await revealVal.split(",").map(Number);
             try {
-                let res = await contract_2.methods.Reveal(bit,key).send({from : address});
+                let res = await contract_2.methods.Reveal(bit, key).send({ from: address });
                 setRevealAccepted(true);
-            }   
-            catch(err){
+            }
+            catch (err) {
                 setRevealAccepted(false);
                 console.log('error Reveal');
             }
@@ -302,35 +303,35 @@ export default function App() {
     }
 
     const resetHandle = async () => {
-        try{
-            let res = await contract_2.methods.election_reset().send({from : address});
+        try {
+            let res = await contract_2.methods.election_reset().send({ from: address });
             setElectionOn(false)
             setRevealOn(false)
             setElected(false)
         }
-        catch{
+        catch {
         }
     }
-    useEffect(()=>{
-        contract_2.events.leader_elected().on("data",() =>{
+    useEffect(() => {
+        contract_2.events.leader_elected().on("data", () => {
             setElected(true)
         });
         return () => {
             contract_2.removeAllListeners("leader_elected")
         };
-    },[contract_2]);
+    }, [contract_2]);
 
-    useEffect(()=>{
-        contract_2.events.reveal_on().on("data",() =>{
+    useEffect(() => {
+        contract_2.events.reveal_on().on("data", () => {
             setRevealOn(true)
         });
         return () => {
             contract_2.removeAllListeners("reveal_on")
         };
-    },[contract_2]);
+    }, [contract_2]);
 
-    useEffect(()=>{
-        contract_2.events.reset_done().on("data",() =>{
+    useEffect(() => {
+        contract_2.events.reset_done().on("data", () => {
             setResetDone(true)
             setElectionOn(false)
             setRevealOn(false)
@@ -339,13 +340,13 @@ export default function App() {
         return () => {
             contract_2.removeAllListeners("reset_done")
         };
-    },[contract_2]);
+    }, [contract_2]);
 
     const getLeader = async () => {
         let res = await contract_2.methods.get_leader().call();
         return res;
     }
-////// store and get value. 
+    ////// store and get value. 
     const storedValUpdate = async () => {
         const inputVal = document.getElementById('inputVal').value;
         setStoredPending(false);
@@ -358,12 +359,12 @@ export default function App() {
         else {
             setStoredPending(true);
             setStoredVal(inputVal);
-            
-            try{
+
+            try {
                 const detail = await storeData(inputVal);   // contract deployed. 
                 RecordPush('store', inputVal, detail);      // recorded. 
             }
-            catch(err){
+            catch (err) {
                 const detail = 'null';                      // no detail info. 
                 RecordPush('store', inputVal, detail);      // recorded. 
             }
@@ -392,8 +393,8 @@ export default function App() {
                 const k_ = await contract_auction.methods.k().call();
                 const rsv = await contract_auction.methods.reservePrice().call();
                 const dep = await contract_auction.methods.minDeposit().call();
-                const cd  = await contract_auction.methods.commitDeadline().call();
-                const rd  = await contract_auction.methods.revealDeadline().call();
+                const cd = await contract_auction.methods.commitDeadline().call();
+                const rd = await contract_auction.methods.revealDeadline().call();
                 let fg = 120;
                 let fr = 0;
                 try {
@@ -418,7 +419,7 @@ export default function App() {
                 }
                 console.log("local now (unix):", nowTs, "chain latest block timestamp:", latestChainTs);
                 const wOn = await contract_auction.methods.whitelistOn().call();
-                const st  = await contract_auction.methods.settled().call();
+                const st = await contract_auction.methods.settled().call();
                 const sellerAddr = await contract_auction.methods.seller().call();
                 setKUnits(Number(k_));
                 setReservePrice(Number(rsv));
@@ -452,7 +453,7 @@ export default function App() {
             }
         });
         return () => {
-            try { contract_auction.removeAllListeners("Settled"); } catch (_) {}
+            try { contract_auction.removeAllListeners("Settled"); } catch (_) { }
         };
     }, [contract_auction]);
 
@@ -485,12 +486,19 @@ export default function App() {
             }
 
             const qtyInput = (formData.qty ?? "").toString();
-            const priceInput = (formData.price ?? "").toString();
+            const priceInput = (formData.price_raw ?? "").toString();
+            const unitInput = (formData.unit ?? "wei").toString();
             const saltInput = (formData.salt ?? "").toString();
             const proofInput = (formData.proof ?? "").toString();
 
             const qty = Number(qtyInput);
-            const price = Number(priceInput);
+            let price;
+
+            if (unitInput === "eth")
+                price = Number(parseEther(priceInput).toString());
+            else
+                price = Number(priceInput);
+
             if (
                 qtyInput.trim() === "" ||
                 priceInput.trim() === "" ||
@@ -504,14 +512,14 @@ export default function App() {
                 console.log("Commit validation failed:", { qtyInput, priceInput, qty, price });
                 throw new Error(`Invalid quantity or price (qty=${qtyInput}, price=${priceInput})`);
             }
-            const proofStr  = proofInput.trim();
+            const proofStr = proofInput.trim();
 
             const saltBytes = web3.utils.keccak256(saltInput);
             const commitHash = web3.utils.soliditySha3(
-                {t:'uint256', v: qty},
-                {t:'uint256', v: price},
-                {t:'bytes32', v: saltBytes},
-                {t:'address', v: address}
+                { t: 'uint256', v: qty },
+                { t: 'uint256', v: price },
+                { t: 'bytes32', v: saltBytes },
+                { t: 'address', v: address }
             );
             console.log("Commit hash payload:", {
                 qty,
@@ -560,11 +568,17 @@ export default function App() {
             }
 
             const qtyInput = (formData.qty ?? "").toString();
-            const priceInput = (formData.price ?? "").toString();
+            const priceInput = (formData.price_raw ?? "").toString();
+            const unitInput = (formData.unit ?? "wei").toString();
             const saltInput = (formData.salt ?? "").toString();
             const randRaw = (formData.rand ?? "").toString();
             const qty = Number(qtyInput);
-            const price = Number(priceInput);
+            let price;
+
+            if (unitInput === "eth")
+                price = Number(parseEther(priceInput).toString());
+            else
+                price = Number(priceInput);
 
             // Try read optional randPart input; if absent or empty, auto-generate one.
             const randInput = (randRaw && randRaw.length > 0)
@@ -626,7 +640,7 @@ export default function App() {
     const onFinalize = async () => {
         try {
             await contract_auction.methods.finalize().send({ from: address });
-            const st  = await contract_auction.methods.settled().call();
+            const st = await contract_auction.methods.settled().call();
             setSettled(Boolean(st));
             await refreshAuctionPhases();
         } catch (err) {
@@ -635,58 +649,58 @@ export default function App() {
     };
     // =================================
 
-////// display functions. 
+    ////// display functions. 
     const ProfileDisplay = () => {
         return (
-            <Profile 
-                isConnected = {isConnected}
-                address = {address} 
-                networkType = {network} 
-                balance = {balance}
+            <Profile
+                isConnected={isConnected}
+                address={address}
+                networkType={network}
+                balance={balance}
             />
         )
     }
 
     const StorageDisplay = () => {
         return (
-            <Storage 
-                isConnected = {isConnected}
-                storeValHandle = {storedValUpdate} 
-                showValHandle = {showValUpdate} 
-                showVal = {showVal} 
-                storedPending = {storedPending}
-                storedDone = {storedDone}
+            <Storage
+                isConnected={isConnected}
+                storeValHandle={storedValUpdate}
+                showValHandle={showValUpdate}
+                showVal={showVal}
+                storedPending={storedPending}
+                storedDone={storedDone}
             />
         )
     }
 
     const HistoryDisplay = () => {
         return (
-            <History 
-                isConnected = {isConnected}
-                recordList = {historyRecord}
-                recordLen = {recordLen}
+            <History
+                isConnected={isConnected}
+                recordList={historyRecord}
+                recordLen={recordLen}
             />
         )
     }
 
-    const LeaderDisplay = () =>{
-        return(
+    const LeaderDisplay = () => {
+        return (
             <Leader
-                isConnected = {isConnected}
-                commitValHandle = {commitValUpdate}
-                showLeader = {showLead}
-                commitDone = {commitDone}
-                commitPending = {commitPending}
-                revealVal = {revealVal}
-                revealPending = {revealPending}
-                revealAccepted = {revealAccepted}
-                showLeaderHandle = {showLeaderUpdate}
-                resetHandle = {resetHandle}
-                resetDone = {resetDone}
-                electionOn = {electionOn}
-                revealOn = {revealOn}
-                elected = {elected}
+                isConnected={isConnected}
+                commitValHandle={commitValUpdate}
+                showLeader={showLead}
+                commitDone={commitDone}
+                commitPending={commitPending}
+                revealVal={revealVal}
+                revealPending={revealPending}
+                revealAccepted={revealAccepted}
+                showLeaderHandle={showLeaderUpdate}
+                resetHandle={resetHandle}
+                resetDone={resetDone}
+                electionOn={electionOn}
+                revealOn={revealOn}
+                elected={elected}
             />
         )
     }
@@ -731,13 +745,13 @@ export default function App() {
     return (
         <div className="App">
             <Routes>
-                <Route path = "/EE4032" element = {<Login isHaveMetamask = {haveMetamask} connectTo = {connectWallet} />}></Route>
-                <Route path = "/InterfaceDemo/profile" element = {<ProfileDisplay/>}></Route>
+                <Route path="/EE4032" element={<Login isHaveMetamask={haveMetamask} connectTo={connectWallet} />}></Route>
+                {/* <Route path = "/InterfaceDemo/profile" element = {<ProfileDisplay/>}></Route>
                 <Route path = "/InterfaceDemo/storage" element = {<StorageDisplay/>}></Route>
                 <Route path = "/InterfaceDemo/history" element = {<HistoryDisplay/>}></Route>
-                <Route path = "/InterfaceDemo/leader" element = {<LeaderDisplay/>}></Route>
+                <Route path = "/InterfaceDemo/leader" element = {<LeaderDisplay/>}></Route> */}
                 {/* new auction route */}
-                <Route path = "/InterfaceDemo/auction" element = {<AuctionDisplay/>}></Route>
+                <Route path="/auction" element={<AuctionDisplay />}></Route>
             </Routes>
         </div>
     );
