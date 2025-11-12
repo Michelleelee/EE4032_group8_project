@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState, useCallback } from 'react';
 import { ethers } from 'ethers';
@@ -745,13 +745,9 @@ export default function App() {
     return (
         <div className="App">
             <Routes>
-                <Route path="/EE4032" element={<Login isHaveMetamask={haveMetamask} connectTo={connectWallet} />}></Route>
-                {/* <Route path = "/InterfaceDemo/profile" element = {<ProfileDisplay/>}></Route>
-                <Route path = "/InterfaceDemo/storage" element = {<StorageDisplay/>}></Route>
-                <Route path = "/InterfaceDemo/history" element = {<HistoryDisplay/>}></Route>
-                <Route path = "/InterfaceDemo/leader" element = {<LeaderDisplay/>}></Route> */}
-                {/* new auction route */}
-                <Route path="/auction" element={<AuctionDisplay />}></Route>
+                <Route path="/" element={<Login isHaveMetamask={haveMetamask} connectTo={connectWallet} />} />
+                <Route path="/EE4032" element={<Login isHaveMetamask={haveMetamask} connectTo={connectWallet} />} />               
+                <Route path="/auction" element={<AuctionDisplay />} />
             </Routes>
         </div>
     );
